@@ -1,4 +1,13 @@
 require 'spec_helper'
+require 'byebug'
+
+describe "User", :focus do
+  let!(:user) { User.create! name: "babakun" }
+
+  it "queries the database" do
+    expect(Chronos::User.find(user.id)).to eql (user)
+  end
+end
 
 describe "Timeline" do
   before do
@@ -6,8 +15,9 @@ describe "Timeline" do
     allow(Chronos::User).to receive(:find).with('jane_123'){ user('jane_123') }
   end
 
-  let(:bob) { 'bob_123'}  
-  let(:jane) { 'jane_123' }
+  let(:bob)    { 'bob_123'     }
+  let(:jane)   { 'jane_123'    }
+  let(:alfred) { "alimony_321" }
 
   def user(user_id)
     {
@@ -16,11 +26,12 @@ describe "Timeline" do
       "profile_image_url" => "http://example.com/foo.png"
     }
   end
-  
-  def expected_item(time, user_id)
+
+  def expected_item(time, user_id, opt = {})
     {
       key: "activity.topic.attempted",
       created_ts: time,
+      owner_id: user_id,
       trackable: {
         type: "Topic", 
         name: "Balls",
@@ -32,7 +43,11 @@ describe "Timeline" do
         last_name: "lastname_#{user_id}",
         profile_image_url: "http://example.com/foo.png"
       }
-    }
+    }.merge(opt)
+  end
+
+  def expected_item_with_related(time, user_id)
+    expected_item(time, user_id).merge!(related: [])
   end
 
   def log(opts = {})
@@ -59,66 +74,97 @@ describe "Timeline" do
     Redis.new.flushdb
   end
 
-  # bobs_list
-  #   4000
-  #   3500
 
-  # janes_list
-  #   3000
-  #   2500
+  describe '.sort_by_score' do
+    it 'sorts by score' do
+      input = [["a", 4],["b", 3],["c", 1],["d", 32]]
+      output = [["d", 32], ["a", 4], ["b", 3], ["c", 1]]
 
-  # all_list
-  # bob 4000
-  # jane 3000
-
-# get from 3000 to 4000
+      expect(Chronos::Timeline.sort_by_score(input)).to eq(output)
+    end
+  end
 
   it "has activities" do
     log(created_ts: 4000, user_id: jane)
     log(created_ts: 3000, user_id: bob)
 
-    expected = {
-      grouped_activities: [
-        expected_item(4000, jane),
-        expected_item(3000, bob)
-      ]
-    }
+    expected = [
+      expected_item(4000, jane, related: []),
+      expected_item(3000, bob, related: [])
+    ]
 
-    expect(Chronos::Timeline.fetch('123')).to eql(expected)
+
+    expect(Chronos::Timeline.fetch_for_student_groups(['123'])).to eql(expected)
   end
 
-  it "has nested activities", :focus do
+  it "has nested activities" do
     log(created_ts: 1000, user_id: jane)
     log(created_ts: 2000, user_id: bob)
     log(created_ts: 3000, user_id: bob)
     log(created_ts: 4000, user_id: jane)
 
-    expected = {
-      grouped_activities: [
-        expected_item(4000, jane),
-        expected_item(3000, bob).merge!(
-          related: [
-            expected_item(2000, bob)
-          ]
-        ),
-        expected_item(1000, jane),
-      ]
-    } 
-    
-    expect(Chronos::Timeline.fetch('123')).to eql(expected)
+    expected = [
+      expected_item(4000, jane, related: []),
+      expected_item(3000, bob,
+        related: [
+          expected_item(2000, bob, related: [])
+        ]
+      ),
+      expected_item(1000, jane, related: []),
+    ]
+
+    expect(Chronos::Timeline.fetch_for_student_groups(['123'])).to eql(expected)
   end
 
-  # describe "fetching with score" do
-  #   it "returns an array of arrays" do
-  #     log(created_ts: 1000, user_id: jane)
+  describe "several student groups" do
+    let(:expected) do
+      [
+        expected_item(4000, jane, related: []),
+        expected_item(3000, bob,
+          related: [
+            expected_item(2000, bob, related: [])
+          ]
+        ),
+        expected_item(1000, jane, related: [])
+      ]
+    end
 
-  #     items = Chronos::Store.db.zrange "student_group:123:timeline", 0, 20, with_scores: true
+    before do
+      log(created_ts: 1000, user_id: jane, student_group_id: "a" )
+      log(created_ts: 2000, user_id: bob,  student_group_id: "b" )
+      log(created_ts: 3000, user_id: bob,  student_group_id: "a" )
+      log(created_ts: 4000, user_id: jane, student_group_id: "a" )
+      log(created_ts: 4000, user_id: alfred, student_group_id: "c" )
+    end
 
+    it "returns activities for multiple student groups" do
+      data = Chronos::Timeline.fetch_for_student_groups(["a", "b"])
+      expect(data).to eql expected
+    end
+  end
 
-  #     puts items
+  describe "several students" do
+    let(:expected) do
+        [
+          expected_item(4000, jane),
+          expected_item(3000, bob),
+          expected_item(2000, bob),
+          expected_item(1000, jane)
+        ]
+    end
 
-  #     expect(items.first.class).to be Array
-  #   end
-  # end
+    before do
+      log(created_ts: 1000, user_id: jane, student_group_id: "a" )
+      log(created_ts: 2000, user_id: bob,  student_group_id: "b" )
+      log(created_ts: 3000, user_id: bob,  student_group_id: "a" )
+      log(created_ts: 4000, user_id: jane, student_group_id: "a" )
+      log(created_ts: 4000, user_id: alfred, student_group_id: "c" )
+    end
+
+    it "returns activities for multiple student groups" do
+      data = Chronos::Timeline.fetch_for_students([bob, jane])
+      expect(data).to eql expected
+    end
+  end
 
 end

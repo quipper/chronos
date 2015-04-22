@@ -2,79 +2,77 @@ require 'digest/sha1'
 require 'redis'
 require 'json'
 
+$redis = Redis.new
+
 module Chronos
   class User
     def self.find(id)
     end
   end
-  class Store
-    @@redis = ::Redis.new
-
-    def self.db
-      @@redis
-    end
-  end
 
   class Timeline
 
+    @student_group_key = -> (id) { "student_group:#{id}:activities" }
+    @student_key       = -> (id) { "student:#{id}:activities"       }
+
     class << self
       def log(data)
-        # key = "student_group:#{data[:student_group_id]}:users:#{data[:user_id]}"
-        # member = Digest::SHA1.hexdigest "#{data[:user_id]}#{data[:topic_id]}#{data[:created_ts]}"
 
-        # puts "log . . . ."
-        # puts slist_key(data)
-        # puts student_group_list_key(data)
+        student_group_key = "student_group:#{data[:student_group_id]}:activities"
+        student_key = "student:#{data[:user_id]}:activities"
 
-        Store.db.zadd slist_key(data), data[:created_ts], member(data)
-        Store.db.hset "users:#{data[:user_id]}:timeline_activities", member(data), data.to_json
-        Store.db.zadd student_group_list_key(data), data[:created_ts], data[:user_id]
+        $redis.zadd student_group_key, data[:created_ts], member(data)
+        $redis.zadd student_key, data[:created_ts], member(data)
+        $redis.hset "activities", member(data), data.to_json
       end
 
-      def fetch(id)
-    
-        items = Store.db.zrevrange student_group_list_key(student_group_id: id), 0, 20, with_scores: true
-        # p items, "items"
 
+      def fetch_for_student_groups(ids)
+        data = fetch_data_by_key ids, @student_group_key
+        data = sort_by_score(data)
+        data = get_activities(data)
 
-        memo = []
-        items.each_with_index do |item, index|
-          next_item = items[index + 1]
-          
-          key = slist_key(student_group_id: id, user_id: item[0])
-          
-          if next_item
-            from = next_item[1].to_i
-          else
-             from = item[1] 
-          end
+        group_consecutive data
+      end
 
-          to = item[1].to_i
+      def fetch_for_students(ids)
+        data = fetch_data_by_key ids, @student_key
+        data = sort_by_score(data)
 
-          students_items = Store.db.zrangebyscore  key, from, to
-          all = Store.db.zrange key, 0, -1, with_scores: true
-          p [from, to, item[0]]
-          p "all: ", all
-          p students_items, item[0]
+        get_activities(data)
+      end
 
-          students_items.each do |student_item|            
-            hash_key = student_item
-            # Store.db.zrange slist_key(student_group_id: id, user_id: item[0]), 0, 1
-            
-            data = Store.db.hget "users:#{item[0]}:timeline_activities", hash_key
-            
-            item = data_for_activity( JSON.parse(data) )
-            memo.push item
-          end
+      def fetch_data_by_key(ids, key)
+        ids.inject([]) do |memo, id|
+          values = $redis.zrevrange key.call(id), 0, -1, with_scores: true
+          memo += values
         end
-        
-        puts memo
+      end
 
-        {
-          grouped_activities: memo
-        }
-        # puts "ITEMS! >> ", id
-        # puts items
+      def get_activities(data)
+        data.map do |arr|
+          activity_data_key = arr.first
+          json = JSON.parse $redis.hget("activities", activity_data_key)
+          data_for_activity json
+        end
+      end
+
+      def group_consecutive(documents)
+        documents.inject([]) do |memo, document|
+          last = memo.last
+          document[:related] = []
+
+          if last && last[:owner_id] == document[:owner_id]
+            memo.last[:related] << document
+          else
+            memo << document
+          end
+          memo
+        end
+      end
+
+      def sort_by_score(data)
+        data.sort {|x,y| y[1] <=> x[1]}
       end
 
       private
@@ -84,6 +82,7 @@ module Chronos
         {
           key: data["key"],
           created_ts: data["created_ts"],
+          owner_id: data["user_id"],
           trackable: {
             type: data["type"],
             name: data["name"],
@@ -99,31 +98,9 @@ module Chronos
         }
       end
 
-      def slist_key(data)
-        "student_group:#{data[:student_group_id]}:users:#{data[:user_id]}:timeline"
-      end
-
-      def student_group_list_key(data)
-        "student_group:#{data[:student_group_id]}:timeline"
-      end
-
       def member(data)
         Digest::SHA1.hexdigest "#{data[:user_id]}#{data[:key]}#{data[:created_ts]}"
       end
-
-      def group_consecutive(documents)
-        documents.inject([]) do |memo, document|
-          last = memo.last
-
-          if last && last[:primary].owner_id == document.owner_id
-            memo.last[:related] << document
-          else
-            memo << { primary: document, related: [] }
-          end
-          memo
-        end
-      end
-
     end
 
   end
