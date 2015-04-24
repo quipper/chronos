@@ -2,10 +2,15 @@ require 'spec_helper'
 require 'byebug'
 
 describe "User", :focus do
-  let!(:user) { User.create! name: "babakun" }
+  let(:user) { $mongo[:users].find.first }
 
-  it "queries the database" do
-    expect(Chronos::User.find(user.id)).to eql (user)
+  before do
+    $mongo[:users].find.delete_many
+    $mongo[:users].insert_one({ name: 'babakun' })
+  end
+
+  it "queries the database", :focus do
+    expect(Chronos::User.find(user['_id'])).to eq(user)
   end
 end
 

@@ -1,12 +1,16 @@
 require 'digest/sha1'
 require 'redis'
 require 'json'
+require 'mongo'
 
+Mongo::Logger.logger.level = Logger::WARN
 $redis = Redis.new
+$mongo = Mongo::Client.new([ '127.0.0.1:27017' ], :database => 'chronos_test')
 
 module Chronos
   class User
     def self.find(id)
+      $mongo[:users].find(_id: id).first
     end
   end
 
