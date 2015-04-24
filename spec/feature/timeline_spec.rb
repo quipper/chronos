@@ -1,5 +1,5 @@
 require 'spec_helper'
-require 'byebug'
+require './lib/chronos'
 
 describe "User" do
   let(:user) { $mongo[:users].find.first }
@@ -97,16 +97,6 @@ describe "Timeline" do
 
   before :each do
     Redis.new.flushdb
-  end
-
-
-  describe '.sort_by_score' do
-    it 'sorts by score' do
-      input = [["a", 4],["b", 3],["c", 1],["d", 32]]
-      output = [["d", 32], ["a", 4], ["b", 3], ["c", 1]]
-
-      expect(Chronos::Timeline.sort_by_score(input)).to eq(output)
-    end
   end
 
   it "has activities" do
