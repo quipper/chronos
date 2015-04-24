@@ -7,13 +7,17 @@ Mongo::Logger.logger.level = Logger::WARN
 $redis = Redis.new
 $mongo = Mongo::Client.new([ '127.0.0.1:27017' ], :database => 'chronos_test')
 
+
 module Chronos
   class User
     def self.find(id)
+      id = BSON::ObjectId.from_string(id)
       $mongo[:users].find(_id: id).first
     end
   end
+end
 
+module Chronos
   class Timeline
 
     @student_group_key = -> (id) { "student_group:#{id}:activities" }
@@ -80,6 +84,7 @@ module Chronos
       end
 
       private
+
       def data_for_activity(data)
         user = Chronos::User.find(data['user_id'])
 

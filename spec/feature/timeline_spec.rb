@@ -1,7 +1,7 @@
 require 'spec_helper'
 require 'byebug'
 
-describe "User", :focus do
+describe "User" do
   let(:user) { $mongo[:users].find.first }
 
   before do
@@ -9,43 +9,58 @@ describe "User", :focus do
     $mongo[:users].insert_one({ name: 'babakun' })
   end
 
-  it "queries the database", :focus do
+  it "queries the database" do
     expect(Chronos::User.find(user['_id'])).to eq(user)
   end
 end
 
 describe "Timeline" do
-  before do
-    allow(Chronos::User).to receive(:find).with('bob_123'){ user('bob_123') }
-    allow(Chronos::User).to receive(:find).with('jane_123'){ user('jane_123') }
+
+  def user_attributes(name)
+    {
+      username: name,
+      first_name: "firstname_#{name}",
+      last_name:  "lastname_#{name}",
+      profile_image_url: "http://example.com/foo.png"
+    }
   end
 
-  let(:bob)    { 'bob_123'     }
-  let(:jane)   { 'jane_123'    }
-  let(:alfred) { "alimony_321" }
+  def create_user(name)
+    $mongo[:users].insert_one( user_attributes(name) )
+    $mongo[:users].find(username: name ).first
+  end
 
-  def user(user_id)
+  before do
+    $mongo[:users].find.delete_many
+  end
+
+
+  let!(:bob)    { create_user('bob') }
+  let!(:jane)   { create_user('jane') }
+  let!(:alfred) { create_user('alfred') }
+
+  def user(user)
     {
-      "first_name" => "firstname_#{user_id}",
-      "last_name" => "lastname_#{user_id}",
+      "first_name" => user["first_name"],
+      "last_name" => user["last_name"],
       "profile_image_url" => "http://example.com/foo.png"
     }
   end
 
-  def expected_item(time, user_id, opt = {})
+  def expected_item(time, user, opt = {})
     {
       key: "activity.topic.attempted",
       created_ts: time,
-      owner_id: user_id,
+      owner_id: user['_id'].to_s,
       trackable: {
-        type: "Topic", 
+        type: "Topic",
         name: "Balls",
         course_id: "1234",
         bundle_id: "5678"
       },
       owner: {
-        first_name: "firstname_#{user_id}",
-        last_name: "lastname_#{user_id}",
+        first_name: user['first_name'],
+        last_name: user['last_name'],
         profile_image_url: "http://example.com/foo.png"
       }
     }.merge(opt)
@@ -56,10 +71,15 @@ describe "Timeline" do
   end
 
   def log(opts = {})
+
+    if opts[:user_id]
+      opts[:user_id] = opts[:user_id]["_id"].to_s
+    end
+
     memo = {
       key: "activity.topic.attempted",
       user_id: '1234',
-      type: "Topic", 
+      type: "Topic",
       name: "Balls",
       course_id: "1234",
       bundle_id: "5678",
@@ -167,7 +187,7 @@ describe "Timeline" do
     end
 
     it "returns activities for multiple student groups" do
-      data = Chronos::Timeline.fetch_for_students([bob, jane])
+      data = Chronos::Timeline.fetch_for_students([bob['_id'], jane['_id']])
       expect(data).to eql expected
     end
   end
