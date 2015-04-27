@@ -14,6 +14,7 @@ describe "User" do
   end
 end
 
+
 describe "Timeline" do
 
   def user_attributes(name)
@@ -92,7 +93,7 @@ describe "Timeline" do
       }
     }.merge!(opts)
 
-    Chronos::Timeline.log(memo)
+    Chronos::Store.log(memo)
   end
 
   before :each do
@@ -109,7 +110,7 @@ describe "Timeline" do
     ]
 
 
-    expect(Chronos::Timeline.fetch_for_student_groups(['123'])).to eql(expected)
+    expect(Chronos::Timeline::StudentGroups.fetch(['123'])).to eql(expected)
   end
 
   it "has nested activities" do
@@ -128,7 +129,7 @@ describe "Timeline" do
       expected_item(1000, jane, related: []),
     ]
 
-    expect(Chronos::Timeline.fetch_for_student_groups(['123'])).to eql(expected)
+    expect(Chronos::Timeline::StudentGroups.fetch(['123'])).to eql(expected)
   end
 
   describe "several student groups" do
@@ -153,7 +154,7 @@ describe "Timeline" do
     end
 
     it "returns activities for multiple student groups" do
-      data = Chronos::Timeline.fetch_for_student_groups(["a", "b"])
+      data = Chronos::Timeline::StudentGroups.fetch(["a", "b"])
       expect(data).to eql expected
     end
   end
@@ -177,7 +178,7 @@ describe "Timeline" do
     end
 
     it "returns activities for multiple student groups" do
-      data = Chronos::Timeline.fetch_for_students([bob['_id'], jane['_id']])
+      data = Chronos::Timeline::Students.fetch([bob['_id'], jane['_id']])
       expect(data).to eql expected
     end
   end

@@ -3,9 +3,13 @@ require 'redis'
 require 'json'
 require 'mongo'
 
-require_relative 'chronos/timeline'
 require_relative 'chronos/user'
-require_relative 'chronos/utility'
+require_relative 'chronos/keys'
+require_relative 'chronos/store'
+require_relative 'chronos/timeline/utility'
+require_relative 'chronos/timeline/students'
+require_relative 'chronos/timeline/student_groups'
+
 
 module Chronos
   Mongo::Logger.logger.level = Logger::WARN
