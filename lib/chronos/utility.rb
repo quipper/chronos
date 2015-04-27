@@ -18,5 +18,21 @@ module Chronos
     def sort_by_array_item(data, index)
       data.sort {|x,y| y[index] <=> x[index]}
     end
+
+
+    def group_consecutive(items, add_consecutive_to:, comparison_key:)
+      items.inject([]) do |memo, document|
+        last = memo.last
+
+        document[add_consecutive_to] = []
+
+        if last && last[comparison_key] == document[comparison_key]
+          memo.last[add_consecutive_to] << document
+        else
+          memo << document
+        end
+        memo
+      end
+    end
   end
 end

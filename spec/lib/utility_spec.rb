@@ -25,4 +25,26 @@ describe Chronos::Utility do
     end
   end
 
+  describe '.group_consecutive' do
+    let(:input) do
+      [
+        {name: 'bob', id: 1  },
+        {name: 'bob', id: 2 },
+        {name: 'jane', id: 3},
+        {name: 'bob', id: 4}
+      ]
+    end
+
+    it 'returns array with consecutives grouped' do
+      opts = { add_consecutive_to: :related, comparison_key: :name }
+      result = subject.group_consecutive(input, opts)
+
+      expect(result).to eq([
+        {name: 'bob', id: 1, related: [{name: 'bob', id: 2, related: [] }]},
+        {name: 'jane', id: 3, related: [] },
+        {name: 'bob', id: 4, related: []}
+      ])
+    end
+  end
+
 end

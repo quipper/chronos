@@ -26,7 +26,7 @@ module Chronos
       def fetch_for_student_groups(ids)
         data = fetch(ids, @student_group_key)
         data = get_activities(data)
-        group_consecutive data
+        Utility.group_consecutive data, add_consecutive_to: :related, comparison_key: :owner_id
       end
 
       def fetch_for_students(ids)
@@ -41,21 +41,6 @@ module Chronos
           data_for_activity json
         end
       end
-
-      def group_consecutive(documents)
-        documents.inject([]) do |memo, document|
-          last = memo.last
-          document[:related] = []
-
-          if last && last[:owner_id] == document[:owner_id]
-            memo.last[:related] << document
-          else
-            memo << document
-          end
-          memo
-        end
-      end
-
 
       private
 
