@@ -121,11 +121,11 @@ describe "Timeline" do
     expected = [
       expected_item(4000, jane, related: []),
       expected_item(3000, bob,
-        related: [
-          expected_item(2000, bob, related: [])
-        ]
-      ),
-      expected_item(1000, jane, related: []),
+                    related: [
+                      expected_item(2000, bob, related: [])
+      ]
+                   ),
+                   expected_item(1000, jane, related: []),
     ]
 
     expect(Chronos::Timeline::StudentGroups.fetch(['123'])).to eql(expected)
@@ -187,11 +187,11 @@ describe "Timeline" do
       [
         expected_item(4000, jane, related: []),
         expected_item(3000, bob,
-          related: [
-            expected_item(2000, bob, related: [])
-          ]
-        ),
-        expected_item(1000, jane, related: [])
+                      related: [
+                        expected_item(2000, bob, related: [])
+        ]
+                     ),
+                     expected_item(1000, jane, related: [])
       ]
     end
 
@@ -211,12 +211,12 @@ describe "Timeline" do
 
   describe "several students" do
     let(:expected) do
-        [
-          expected_item(4000, jane),
-          expected_item(3000, bob),
-          expected_item(2000, bob),
-          expected_item(1000, jane)
-        ]
+      [
+        expected_item(4000, jane),
+        expected_item(3000, bob),
+        expected_item(2000, bob),
+        expected_item(1000, jane)
+      ]
     end
 
     before do
@@ -233,4 +233,24 @@ describe "Timeline" do
     end
   end
 
+  describe "trims data" do
+    before do
+      101.times do |i|
+        log(created_ts: i, user_id: bob)
+      end
+    end
+
+    context "students list" do
+
+      it "is 100 items only" do
+        expect(Chronos::Timeline::Students.fetch([bob['_id']], limit: 500).length).to eq 100
+      end
+    end
+
+    context "activities hash" do
+      it "has extraneous values removed" do
+        expect($redis.hlen "activities").to eq 100
+      end
+    end
+  end
 end
