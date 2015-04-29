@@ -109,7 +109,6 @@ describe "Timeline" do
       expected_item(3000, bob, related: [])
     ]
 
-
     expect(Chronos::Timeline::StudentGroups.fetch(['123'])).to eql(expected)
   end
 
@@ -130,6 +129,57 @@ describe "Timeline" do
     ]
 
     expect(Chronos::Timeline::StudentGroups.fetch(['123'])).to eql(expected)
+  end
+
+  describe "limit results" do
+    let(:expected) do
+      [
+        expected_item(8000, jane, related: []),
+        expected_item(7000, bob, related: []),
+        expected_item(6000, alfred, related: [])
+      ]
+    end
+
+    before do
+      log(created_ts: 1000, user_id: jane)
+      log(created_ts: 2000, user_id: bob)
+      log(created_ts: 3000, user_id: alfred)
+      log(created_ts: 4000, user_id: jane)
+      log(created_ts: 5000, user_id: bob)
+      log(created_ts: 6000, user_id: alfred)
+      log(created_ts: 7000, user_id: bob)
+      log(created_ts: 8000, user_id: jane)
+    end
+
+    it "student groups" do
+      result = Chronos::Timeline::StudentGroups.fetch(['123'], limit: 3)
+      expect(result).to eql(expected)
+    end
+
+    it "students" do
+      expected.map{|a| a.delete(:related) }
+      result = Chronos::Timeline::Students.fetch([bob['_id'], jane['_id'], alfred['_id']], limit: 3)
+
+      expect(result).to eql(expected)
+    end
+
+    context "many results" do
+      before do
+        (0...100).each do |i|
+          bob_or_jane = if (i % 2) == 0 then bob else jane end 
+
+          log(created_ts: i, user_id: bob_or_jane)
+        end
+      end
+
+      it "returns a great many results" do
+        expect(Chronos::Timeline::StudentGroups.fetch(['123'], limit: 75).length).to eql 75
+      end
+
+      it "returns a great many results for students too" do
+        expect(Chronos::Timeline::Students.fetch([bob['_id'], jane['_id']], limit: 75).length).to eql 75
+      end
+    end
   end
 
   describe "several student groups" do

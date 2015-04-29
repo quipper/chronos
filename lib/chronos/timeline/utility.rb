@@ -1,12 +1,28 @@
 module Chronos
   class Timeline
     module Utility
+      DEFAULT_LIMIT = 50
+
+      def self.included(klass)
+        klass.extend ClassMethods
+      end
+
+      module ClassMethods
+        def fetch(ids, limit: DEFAULT_LIMIT)
+          new(ids, limit: limit).fetch
+        end
+      end
+
+      def initialize(ids, limit: DEFAULT_LIMIT)
+        @ids = ids
+        @limit = limit
+      end
+
       def activities
         $redis.hmget("activities", *activity_ids).inject([]) do |memo, item|
           memo << view(JSON.parse(item))
         end
       end
-
 
       def activity_ids
         @ids.inject([]) do |memo, id|

@@ -4,18 +4,9 @@ module Chronos
       include Keys
       include Utility
 
-      class << self
-        def fetch(ids)
-          new(ids).fetch
-        end
-      end
-
-      def initialize(ids)
-        @ids = ids
-      end
-
       def fetch
-        group_consecutive activities
+        fetched = group_consecutive(activities)
+        fetched[0...@limit]
       end
 
       private
